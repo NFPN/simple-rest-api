@@ -8,25 +8,9 @@ namespace RestAPI.Controllers
     [ApiController]
     public class HotelBookingController(IHotelBookingService service) : ControllerBase
     {
-        //GET ALL
-        [HttpGet]
-        public JsonResult GetAll()
-            => new(Ok(service.GetAll()));
-
-        //GET
-        [HttpGet]
-        public JsonResult Get(int id)
-        {
-            var booking = service.Get(id);
-
-            return booking != null ?
-                new(Ok(booking))
-                : new(NotFound());
-        }
-
         //CREATE/EDIT
         [HttpPost]
-        public JsonResult CreateOrUpdate(HotelBooking booking)
+        public JsonResult CreateOrEdit(HotelBooking booking)
         {
             bool result;
 
@@ -39,8 +23,24 @@ namespace RestAPI.Controllers
                     new(Conflict(new { Reason = "Already Exists" }))
                     : new(NotFound(new { Reason = "Doesn't Exist" }));
 
-            return new(Ok(booking));
+            return new(Created("New entry added", booking));
         }
+
+        //GET
+        [HttpGet]
+        public JsonResult Get(int id)
+        {
+            var booking = service.Get(id);
+
+            return booking != null ?
+                new(Ok(booking))
+                : new(NotFound());
+        }
+
+        //GET ALL
+        [HttpGet]
+        public JsonResult GetAll()
+            => new(Ok(service.GetAll()));
 
         //DELETE
         [HttpGet]

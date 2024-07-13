@@ -1,126 +1,133 @@
-using FluentAssertions;
-using Microsoft.AspNetCore.Mvc.Testing;
-using Microsoft.EntityFrameworkCore;
-using Microsoft.Extensions.DependencyInjection;
-using Newtonsoft.Json;
-using RestAPI.Data;
+using Microsoft.AspNetCore.Mvc;
+using Moq;
+using RestAPI.Controllers;
 using RestAPI.Models;
 using RestAPI.Services;
-using System.Net;
-using System.Text;
 
 namespace RestAPI.Tests
 {
     public class HotelBookingControllerTests
     {
-        private readonly HttpClient client;
-        private readonly WebApplicationFactory<Program> factory;
+        private readonly Mock<IHotelBookingService> mockService;
+        private readonly HotelBookingController controller;
 
-        public HotelBookingControllerTests(WebApplicationFactory<Program> factory)
+        public HotelBookingControllerTests()
         {
-            this.factory = factory.WithWebHostBuilder(builder =>
-            {
-                builder.ConfigureServices(services =>
-                {
-                    services.AddDbContext<APIContext>(options =>
-                    {
-                        options.UseInMemoryDatabase("TestDB");
-                    });
-
-                    services.AddScoped<IHotelBookingService, HotelBookingService>();
-                });
-            });
-
-            client = this.factory.CreateClient();
+            mockService = new Mock<IHotelBookingService>();
+            controller = new HotelBookingController(mockService.Object);
         }
 
         [Fact]
-        public async Task GetAll_ReturnsOk()
+        public void CreateOrEdit_ShouldReturnCreated_WhenBookingIsNew()
         {
             // Arrange
-            using (var scope = factory.Services.CreateScope())
-            {
-                var context = scope.ServiceProvider.GetRequiredService<APIContext>();
-                context.Bookings.Add(new HotelBooking { Id = 1, Room = 101, CustomerName = "John Doe" });
-                context.SaveChanges();
-            }
+            var booking = new HotelBooking { Id = 0, Room = 101, CustomerName = "John Doe" };
+            mockService.Setup(s => s.AddNew(booking)).Returns(true);
 
             // Act
-            var response = await client.GetAsync("/api/hotelbooking");
+            var result = controller.CreateOrEdit(booking);
 
             // Assert
-            response.StatusCode.Should().Be(HttpStatusCode.OK);
-            var content = await response.Content.ReadAsStringAsync();
-            var data = JsonConvert.DeserializeObject<List<HotelBooking>>(content);
-            data.Should().HaveCount(1);
+            var jsonResult = Assert.IsType<JsonResult>(result);
+            var createdResult = Assert.IsType<CreatedResult>(jsonResult.Value);
+            Assert.Equal(201, createdResult.StatusCode);
         }
 
         [Fact]
-        public async Task Get_ReturnsNoContent()
-        {
-            // Act
-            var response = await client.GetAsync("/api/hotelbooking/1");
-
-            // Assert
-            response.StatusCode.Should().Be(HttpStatusCode.NoContent);
-        }
-
-        [Fact]
-        public async Task CreateOrUpdate_Create_ReturnsCreated()
+        public void CreateOrEdit_ShouldReturnConflict_WhenBookingAlreadyExists()
         {
             // Arrange
-            var newBooking = new HotelBooking { Id = 0, Room = 101, CustomerName = "Jane Doe" };
-            var content = new StringContent(JsonConvert.SerializeObject(newBooking), Encoding.UTF8, "application/json");
+            var booking = new HotelBooking { Id = 0, Room = 101, CustomerName = "John Doe" };
+            mockService.Setup(s => s.AddNew(booking)).Returns(false);
 
             // Act
-            var response = await client.PostAsync("/api/hotelbooking", content);
+            var result = controller.CreateOrEdit(booking);
 
             // Assert
-            response.StatusCode.Should().Be(HttpStatusCode.Created);
-            var returnedBooking = JsonConvert.DeserializeObject<HotelBooking>(await response.Content.ReadAsStringAsync());
-            returnedBooking.Room.Should().Be(newBooking.Room);
-            returnedBooking.CustomerName.Should().Be(newBooking.CustomerName);
+            var jsonResult = Assert.IsType<JsonResult>(result);
+            var conflictResult = Assert.IsType<ConflictObjectResult>(jsonResult.Value);
+            Assert.Equal(409, conflictResult.StatusCode);
         }
 
         [Fact]
-        public async Task CreateOrUpdate_Update_ReturnsOk()
+        public void Get_ShouldReturnOk_WhenBookingExists()
         {
             // Arrange
-            using (var scope = factory.Services.CreateScope())
-            {
-                var context = scope.ServiceProvider.GetRequiredService<APIContext>();
-                context.Bookings.Add(new HotelBooking { Id = 1, Room = 101, CustomerName = "John Doe" });
-                context.SaveChanges();
-            }
-
-            var updatedBooking = new HotelBooking { Id = 1, Room = 102, CustomerName = "Jane Smith" };
-            var content = new StringContent(JsonConvert.SerializeObject(updatedBooking), Encoding.UTF8, "application/json");
+            var booking = new HotelBooking { Id = 1, Room = 101, CustomerName = "John Doe" };
+            mockService.Setup(s => s.Get(1)).Returns(booking);
 
             // Act
-            var response = await client.PostAsync("/api/hotelbooking", content);
+            var result = controller.Get(1);
 
             // Assert
-            response.StatusCode.Should().Be(HttpStatusCode.OK);
-            var returnedBooking = JsonConvert.DeserializeObject<HotelBooking>(await response.Content.ReadAsStringAsync());
-            returnedBooking.Should().BeEquivalentTo(updatedBooking);
+            var jsonResult = Assert.IsType<JsonResult>(result);
+            var okResult = Assert.IsType<OkObjectResult>(jsonResult.Value);
+            Assert.Equal(200, okResult.StatusCode);
         }
 
         [Fact]
-        public async Task Delete_ReturnsNoContent()
+        public void Get_ShouldReturnNotFound_WhenBookingDoesNotExist()
         {
             // Arrange
-            using (var scope = factory.Services.CreateScope())
-            {
-                var context = scope.ServiceProvider.GetRequiredService<APIContext>();
-                context.Bookings.Add(new HotelBooking { Id = 1, Room = 101, CustomerName = "John Doe" });
-                context.SaveChanges();
-            }
+            mockService.Setup(s => s.Get(1)).Returns(null as HotelBooking);
 
             // Act
-            var response = await client.DeleteAsync("/api/hotelbooking/1");
+            var result = controller.Get(1);
 
             // Assert
-            response.StatusCode.Should().Be(HttpStatusCode.NoContent);
+            var jsonResult = Assert.IsType<JsonResult>(result);
+            var notFoundResult = Assert.IsType<NotFoundResult>(jsonResult.Value);
+            Assert.Equal(404, notFoundResult.StatusCode);
+        }
+
+        [Fact]
+        public void GetAll_ShouldReturnOkWithAllBookings()
+        {
+            // Arrange
+            var bookings = new List<HotelBooking>
+            {
+                new() { Id = 1, Room = 101, CustomerName = "John Doe" },
+                new() { Id = 2, Room = 102, CustomerName = "Jane Doe" }
+            };
+            mockService.Setup(s => s.GetAll()).Returns(bookings);
+
+            // Act
+            var result = controller.GetAll();
+
+            // Assert
+            var jsonResult = Assert.IsType<JsonResult>(result);
+            var okResult = Assert.IsType<OkObjectResult>(jsonResult.Value);
+            Assert.Equal(200, okResult.StatusCode);
+        }
+
+        [Fact]
+        public void Delete_ShouldReturnOk_WhenBookingExists()
+        {
+            // Arrange
+            mockService.Setup(s => s.Delete(1)).Returns(true);
+
+            // Act
+            var result = controller.Delete(1);
+
+            // Assert
+            var jsonResult = Assert.IsType<JsonResult>(result);
+            var okResult = Assert.IsType<OkResult>(jsonResult.Value);
+            Assert.Equal(200, okResult.StatusCode);
+        }
+
+        [Fact]
+        public void Delete_ShouldReturnNotFound_WhenBookingDoesNotExist()
+        {
+            // Arrange
+            mockService.Setup(s => s.Delete(1)).Returns(false);
+
+            // Act
+            var result = controller.Delete(1);
+
+            // Assert
+            var jsonResult = Assert.IsType<JsonResult>(result);
+            var notFoundResult = Assert.IsType<NotFoundResult>(jsonResult.Value);
+            Assert.Equal(404, notFoundResult.StatusCode);
         }
     }
 }

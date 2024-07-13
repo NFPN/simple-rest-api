@@ -2,6 +2,7 @@
 
 using Microsoft.EntityFrameworkCore;
 using RestAPI.Data;
+using RestAPI.Services;
 
 namespace RestAPI
 {
@@ -17,6 +18,7 @@ namespace RestAPI
             builder.Services.AddControllers();
             builder.Services.AddEndpointsApiExplorer();
             builder.Services.AddSwaggerGen();
+            builder.Services.AddScoped<IHotelBookingService, HotelBookingService>();
 
             var app = builder.Build();
 
