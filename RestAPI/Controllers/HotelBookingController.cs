@@ -1,74 +1,50 @@
 ﻿using Microsoft.AspNetCore.Mvc;
-using RestAPI.Data;
 using RestAPI.Models;
+using RestAPI.Services;
 
 namespace RestAPI.Controllers
 {
     [Route("api/[controller]/[action]")]
     [ApiController]
-    public class HotelBookingController : ControllerBase
+    public class HotelBookingController(IHotelBookingService service) : ControllerBase
     {
-        private readonly APIContext context;
-
-        public HotelBookingController(APIContext apiContext)
-        {
-            context = apiContext;
-        }
-
-        //CREATE/EDIT
-        [HttpPost]
-        public JsonResult CreateEdit(HotelBooking booking)
-        {
-            if (booking.Id == 0)
-            {
-                context.Bookings.Add(booking);
-            }
-            else
-            {
-                var bookingInDB = context.Bookings.Find(booking.Id);
-
-                if (bookingInDB == null) return new JsonResult(NotFound());
-
-                bookingInDB = booking;
-            }
-
-            context.SaveChanges();
-
-            return new JsonResult(Ok(booking));
-        }
+        //GET ALL
+        [HttpGet]
+        public JsonResult GetAll()
+            => new(Ok(service.GetAll()));
 
         //GET
         [HttpGet]
         public JsonResult Get(int id)
         {
-            var bookingInDB = context.Bookings.Find(id);
+            var booking = service.Get(id);
 
-            if (bookingInDB == null) return new JsonResult(NotFound());
+            return booking != null ?
+                new(Ok(booking))
+                : new(NotFound());
+        }
 
-            context.SaveChanges();
+        //CREATE/EDIT
+        [HttpPost]
+        public JsonResult CreateOrUpdate(HotelBooking booking)
+        {
+            bool result;
 
-            return new JsonResult(Ok(bookingInDB));
+            if (booking.Id == 0)
+                result = service.AddNew(booking);
+            else
+                result = service.Update(booking);
+
+            if (result == false) return booking.Id == 0 ?
+                    new(Conflict(new { Reason = "Already Exists" }))
+                    : new(NotFound(new { Reason = "Doesn't Exist" }));
+
+            return new(Ok(booking));
         }
 
         //DELETE
         [HttpGet]
         public JsonResult Delete(int id)
-        {
-            var bookingInDB = context.Bookings.Find(id);
-
-            if (bookingInDB == null) return new JsonResult(NotFound());
-
-            context.Bookings.Remove(bookingInDB);
-            context.SaveChanges();
-
-            return new JsonResult(Ok(NoContent()));
-        }
-
-        //GET ALL
-        [HttpGet]
-        public JsonResult GetAll()
-        {
-            return new JsonResult(Ok(context.Bookings.ToList()));
-        }
+            => service.Delete(id) ? new(Ok()) : new(NotFound());
     }
 }

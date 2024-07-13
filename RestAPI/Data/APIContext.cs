@@ -3,12 +3,8 @@ using RestAPI.Models;
 
 namespace RestAPI.Data
 {
-    public class APIContext : DbContext
+    public class APIContext(DbContextOptions<APIContext> options) : DbContext(options)
     {
         public DbSet<HotelBooking> Bookings { get; set; }
-
-        public APIContext(DbContextOptions<APIContext> options) : base(options)
-        {
-        }
     }
 }
