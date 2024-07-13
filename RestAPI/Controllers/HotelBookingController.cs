@@ -1,8 +1,8 @@
 ﻿using Microsoft.AspNetCore.Mvc;
-using SimpleRestAPI.Data;
-using SimpleRestAPI.Models;
+using RestAPI.Data;
+using RestAPI.Models;
 
-namespace SimpleRestAPI.Controllers
+namespace RestAPI.Controllers
 {
     [Route("api/[controller]/[action]")]
     [ApiController]

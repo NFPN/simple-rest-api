@@ -1,4 +1,4 @@
-﻿namespace SimpleRestAPI.Models
+﻿namespace RestAPI.Models
 {
     public class HotelBooking
     {

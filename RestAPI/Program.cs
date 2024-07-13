@@ -1,7 +1,6 @@
 // Learn more about configuring Swagger/OpenAPI at https://aka.ms/aspnetcore/swashbuckle
 
 using Microsoft.EntityFrameworkCore;
-using SimpleRestAPI.Data;
 
 var builder = WebApplication.CreateBuilder(args);
 

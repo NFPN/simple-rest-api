@@ -1,7 +1,7 @@
 ﻿using Microsoft.EntityFrameworkCore;
-using SimpleRestAPI.Models;
+using RestAPI.Models;
 
-namespace SimpleRestAPI.Data
+namespace RestAPI.Data
 {
     public class APIContext : DbContext
     {
